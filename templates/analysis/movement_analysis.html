@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Movement Analysis - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Price Movement Analysis</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Analysis Parameters</h5>
+            </div>
+            <div class="card-body">
+                {% if message %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endif %}
+                
+                <form method="get">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary mt-3">Run Analysis</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        {% if results %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>Analysis Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Total Movements:</th>
+                                    <td>{{ results.total_movements }}</td>
+                                </tr>
+                                <tr>
+                                    <th>Avg 1D Subsequent Return:</th>
+                                    <td class="{% if results.avg_subsequent_1d > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ results.avg_subsequent_1d|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Avg 5D Subsequent Return:</th>
+                                    <td class="{% if results.avg_subsequent_5d > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ results.avg_subsequent_5d|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>Avg 20D Subsequent Return:</th>
+                                    <td class="{% if results.avg_subsequent_20d > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ results.avg_subsequent_20d|floatformat:2 }}%
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th>5D Win Rate:</th>
+                                    <td>{{ results.win_rate_5d|floatformat:1 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    {% if results.chart %}
+                        <div id="movement-chart" class="mt-4"></div>
+                        <script>
+                            var chartData = {{ results.chart|safe }};
+                            Plotly.newPlot('movement-chart', chartData.data, chartData.layout);
+                        </script>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body">
+                    <p class="text-muted">Configure parameters and click "Run Analysis" to see results.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

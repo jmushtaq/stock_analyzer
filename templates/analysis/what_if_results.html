@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+
+{% block title %}What-If Results - {{ scenario.name }} - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">What-If Results: {{ scenario.name }}</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Scenario Summary</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Description:</th>
+                        <td>{{ scenario.description|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Symbols:</th>
+                        <td>{{ scenario.symbols|join:", " }}</td>
+                    </tr>
+                    <tr>
+                        <th>Date Range:</th>
+                        <td>{{ scenario.start_date }} to {{ scenario.end_date }}</td>
+                    </tr>
+                    <tr>
+                        <th>Entry Rule:</th>
+                        <td><pre>{{ scenario.rules.entry|pprint }}</pre></td>
+                    </tr>
+                    <tr>
+                        <th>Exit Rule:</th>
+                        <td><pre>{{ scenario.rules.exit|pprint }}</pre></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Performance Metrics</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    <tr>
+                        <th>Total Trades:</th>
+                        <td>{{ results.total_trades }}</td>
+                    </tr>
+                    <tr>
+                        <th>Win Rate:</th>
+                        <td class="{% if results.win_rate > 50 %}text-success{% else %}text-danger{% endif %}">
+                            {{ results.win_rate|floatformat:1 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Average Return:</th>
+                        <td class="{% if results.avg_return > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ results.avg_return|floatformat:2 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Median Return:</th>
+                        <td>{{ results.median_return|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <th>Max Return:</th>
+                        <td class="text-success">+{{ results.max_return|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <th>Min Return:</th>
+                        <td class="text-danger">{{ results.min_return|floatformat:2 }}%</td>
+                    </tr>
+                    <tr>
+                        <th>Sharpe Ratio:</th>
+                        <td class="{% if results.sharpe_ratio > 1 %}text-success{% endif %}">
+                            {{ results.sharpe_ratio|floatformat:2 }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Max Drawdown:</th>
+                        <td class="text-danger">{{ results.max_drawdown|floatformat:1 }}%</td>
+                    </tr>
+                    <tr>
+                        <th>Avg Days Held:</th>
+                        <td>{{ results.avg_days_held|floatformat:1 }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Exit Reason Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <table class="table">
+                    {% for reason, count in results.exit_reasons.items %}
+                        <tr>
+                            <th>{{ reason|title }}:</th>
+                            <td>{{ count }} trades ({{ count|div:results.total_trades|floatformat:1 }}%)</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'analysis:what_if' %}" class="btn btn-primary">Back to What-If</a>
+                <button onclick="window.print()" class="btn btn-secondary">Print Results</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Volatility Analysis - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Volatility Analysis</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Select Symbol</h5>
+            </div>
+            <div class="card-body">
+                {% if message %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endif %}
+                
+                <form method="get">
+                    <div class="mb-3">
+                        <label for="symbol" class="form-label">Symbol</label>
+                        <select name="symbol" id="symbol" class="form-select">
+                            <option value="">-- Select a symbol --</option>
+                            {% for symbol in symbols %}
+                                <option value="{{ symbol.ticker }}">{{ symbol.ticker }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="period" class="form-label">Period (days)</label>
+                        <input type="number" name="period" id="period" class="form-control" value="30" min="5" max="252">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Analyze</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        {% if hv %}
+            <div class="card">
+                <div class="card-header">
+                    <h5>Volatility Metrics for {{ symbol }}</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>Historical Volatility ({{ period }}d):</th>
+                                    <td>{{ hv|floatformat:2 }}%</td>
+                                </tr>
+                                <tr>
+                                    <th>ATR (14d):</th>
+                                    <td>${{ atr|floatformat:2 }}</td>
+                                </tr>
+                                <tr>
+                                    <th>ATR % of Price:</th>
+                                    <td>{{ atr_percent|floatformat:2 }}%</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    {% if chart %}
+                        <div id="volatility-chart" class="mt-4"></div>
+                        <script>
+                            var chartData = {{ chart|safe }};
+                            Plotly.newPlot('volatility-chart', chartData.data, chartData.layout);
+                        </script>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body">
+                    <p class="text-muted">Select a symbol to analyze volatility.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

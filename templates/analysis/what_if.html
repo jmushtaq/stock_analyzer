@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}What-If Analysis - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">What-If Analysis</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                <h5>Create New Scenario</h5>
+            </div>
+            <div class="card-body">
+                {% if message %}
+                    <div class="alert alert-info">{{ message }}</div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    {{ form|crispy }}
+                    <button type="submit" class="btn btn-primary mt-3">Run Scenario</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-7">
+        <div class="card">
+            <div class="card-header">
+                <h5>Saved Scenarios</h5>
+            </div>
+            <div class="card-body">
+                {% if scenarios %}
+                    <div class="list-group">
+                        {% for scenario in scenarios %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ scenario.name }}</h6>
+                                    <small>{{ scenario.created_at|date }}</small>
+                                </div>
+                                <p class="mb-1">{{ scenario.description|truncatechars:100 }}</p>
+                                <small class="text-muted">
+                                    Symbols: {{ scenario.symbols|join:", " }} | 
+                                    Trades: {{ scenario.total_trades }} |
+                                    Win Rate: {{ scenario.win_rate|default:"-" }}%
+                                </small>
+                                {% if scenario.executed_at %}
+                                    <span class="badge bg-success">Executed</span>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">No saved scenarios yet. Create one to get started.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

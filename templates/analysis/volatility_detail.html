@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Volatility Detail - {{ symbol }} - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Volatility Analysis: {{ symbol }}</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Volatility Metrics</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <th>Historical Volatility ({{ period }}d):</th>
+                        <td class="{% if hv > 30 %}text-danger{% elif hv > 20 %}text-warning{% else %}text-success{% endif %}">
+                            {{ hv|floatformat:2 }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>ATR (14d):</th>
+                        <td>${{ atr|floatformat:2 }}</td>
+                    </tr>
+                    <tr>
+                        <th>ATR % of Price:</th>
+                        <td>{{ atr_percent|floatformat:2 }}%</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Volatility Chart</h5>
+            </div>
+            <div class="card-body">
+                {% if chart %}
+                    <div id="volatility-chart"></div>
+                    <script>
+                        var chartData = {{ chart|safe }};
+                        Plotly.newPlot('volatility-chart', chartData.data, chartData.layout);
+                    </script>
+                {% else %}
+                    <p class="text-muted">No chart data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Interpretation</h5>
+            </div>
+            <div class="card-body">
+                {% if hv %}
+                    <ul>
+                        <li><strong>Low Volatility (&lt;20%):</strong> Stock is relatively stable</li>
+                        <li><strong>Normal Volatility (20-30%):</strong> Typical market conditions</li>
+                        <li><strong>High Volatility (30-40%):</strong> Elevated uncertainty</li>
+                        <li><strong>Extreme Volatility (&gt;40%):</strong> Crisis or major news</li>
+                    </ul>
+                    <p>Current volatility: 
+                        {% if hv < 20 %}
+                            <span class="badge bg-success">Low</span>
+                        {% elif hv < 30 %}
+                            <span class="badge bg-primary">Normal</span>
+                        {% elif hv < 40 %}
+                            <span class="badge bg-warning">High</span>
+                        {% else %}
+                            <span class="badge bg-danger">Extreme</span>
+                        {% endif %}
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

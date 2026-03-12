@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Stock Analyzer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Stock Analysis Dashboard</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">Total Symbols</h5>
+                <p class="card-text display-6">{{ total_symbols }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">Active Symbols</h5>
+                <p class="card-text display-6">{{ active_symbols }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">Total Price Records</h5>
+                <p class="card-text display-6">{{ total_prices }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">Latest Data</h5>
+                <p class="card-text display-6">{{ latest_date|default:"-" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    <a href="{% url 'analysis:movement' %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Price Movement Analysis</h6>
+                            <small>→</small>
+                        </div>
+                        <p class="mb-1 text-muted small">Find significant price movements and analyze subsequent returns</p>
+                    </a>
+                    <a href="{% url 'analysis:volatility' %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">Volatility Analysis</h6>
+                            <small>→</small>
+                        </div>
+                        <p class="mb-1 text-muted small">Calculate historical volatility, ATR, and other metrics</p>
+                    </a>
+                    <a href="{% url 'analysis:what_if' %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">What-If Analysis</h6>
+                            <small>→</small>
+                        </div>
+                        <p class="mb-1 text-muted small">Create custom scenarios and backtest strategies</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_movements %}
+                    <div class="list-group">
+                        {% for movement in recent_movements %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ movement.symbol.ticker }}</h6>
+                                    <small>{{ movement.date }}</small>
+                                </div>
+                                <p class="mb-1">
+                                    {% if movement.movement_type == 'rise' %}
+                                        <span class="badge bg-success">+{{ movement.actual_movement_pct|floatformat:2 }}%</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">{{ movement.actual_movement_pct|floatformat:2 }}%</span>
+                                    {% endif %}
+                                    <span class="text-muted ms-2">5D subsequent: 
+                                        {% if movement.subsequent_5d_pct > 0 %}
+                                            <span class="text-success">+{{ movement.subsequent_5d_pct|floatformat:2 }}%</span>
+                                        {% elif movement.subsequent_5d_pct < 0 %}
+                                            <span class="text-danger">{{ movement.subsequent_5d_pct|floatformat:2 }}%</span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </span>
+                                </p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted">No recent movements found. Import data to see analysis.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h5>Getting Started</h5>
+            </div>
+            <div class="card-body">
+                <p>To start analyzing your stock data:</p>
+                <ol>
+                    <li>Import your price data using the import command:
+                        <code>python manage.py import_prices --dir ./data --year 2023 --granularity 1D</code>
+                    </li>
+                    <li>Once data is imported, use the analysis tools above to explore price movements and volatility</li>
+                    <li>Create what-if scenarios to test trading strategies</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
