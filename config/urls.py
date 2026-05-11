@@ -8,7 +8,7 @@ urlpatterns = [
     path('accounts/', include('django.contrib.auth.urls')),
     path('', include('dashboard.urls')),
     path('stocks/', include('stocks.urls')),
-    path('analysis/', include('analysis.urls')),
+    path('analysis/', include('analysis.urls', namespace='analysis'))
     #path('api/', include('api.urls')),
 ]
 

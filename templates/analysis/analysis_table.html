@@ -1,0 +1,404 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Stock Analysis Table{% endblock %}
+
+{% block extra_css %}
+<!-- DataTables CSS -->
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.3.6/css/buttons.bootstrap5.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/fixedheader/3.3.2/css/fixedHeader.bootstrap5.min.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/responsive/2.4.1/css/responsive.bootstrap5.min.css">
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<style>
+    .filter-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .filter-row {
+        margin-bottom: 15px;
+    }
+    .select2-container {
+        width: 100% !important;
+    }
+    .badge-volatility-low { background-color: #28a745; }
+    .badge-volatility-normal { background-color: #17a2b8; }
+    .badge-volatility-high { background-color: #ffc107; color: #000; }
+    .badge-volatility-extreme { background-color: #dc3545; }
+    .positive { color: #28a745; font-weight: 500; }
+    .negative { color: #dc3545; font-weight: 500; }
+    .table-loading {
+        position: relative;
+        min-height: 200px;
+    }
+    .table-loading::after {
+        content: "Loading...";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.2em;
+        color: #6c757d;
+    }
+    .date-input-group {
+        display: flex;
+        gap: 10px;
+    }
+    .date-input {
+        flex: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1 class="mb-4">Stock Analysis Table</h1>
+    
+    <!-- Filter Card -->
+    <div class="filter-card">
+        <form method="get" id="analysisForm">
+            <div class="row filter-row">
+                <div class="col-md-3">
+                    <div class="date-input-group">
+                        <div class="date-input">
+                            <label for="from_date" class="form-label">From Date</label>
+                            <input type="text" class="form-control flatpickr" id="from_date" name="from_date" 
+                                   value="{{ from_date|default:'' }}" placeholder="Select from date" required>
+                        </div>
+                        <div class="date-input">
+                            <label for="to_date" class="form-label">To Date</label>
+                            <input type="text" class="form-control flatpickr" id="to_date" name="to_date" 
+                                   value="{{ to_date|default:'' }}" placeholder="Select to date" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <small class="text-muted" id="dateRangeDisplay">
+                            Loading date range...
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label for="symbols" class="form-label">Symbols (leave empty for all)</label>
+                    <select class="form-select" id="symbols" name="symbols" multiple>
+                        {% for symbol in symbols %}
+                        <option value="{{ symbol.ticker }}" {% if symbol.ticker in selected_symbols %}selected{% endif %}>
+                            {{ symbol.ticker }} - {{ symbol.company_name|truncatechars:30 }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="movement_threshold" class="form-label">% Drop/Rise Threshold</label>
+                    <input type="number" class="form-control" id="movement_threshold" name="movement_threshold" 
+                           value="{{ movement_threshold|default:5 }}" step="0.1" min="0.1">
+                </div>
+                <div class="col-md-3">
+                    <label for="time_period" class="form-label">Analysis Period (days)</label>
+                    <input type="number" class="form-control" id="time_period" name="time_period" 
+                           value="{{ time_period|default:30 }}" min="1" max="252">
+                </div>
+            </div>
+            <div class="row filter-row">
+                <div class="col-md-2">
+                    <label for="min_volatility" class="form-label">Min Volatility %</label>
+                    <input type="number" class="form-control" id="min_volatility" name="min_volatility" 
+                           value="{{ min_volatility|default:0 }}" step="0.1" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label for="max_volatility" class="form-label">Max Volatility %</label>
+                    <input type="number" class="form-control" id="max_volatility" name="max_volatility" 
+                           value="{{ max_volatility|default:100 }}" step="0.1" min="0">
+                </div>
+                <div class="col-md-2">
+                    <label for="movement_type" class="form-label">Movement Type</label>
+                    <select class="form-select" id="movement_type" name="movement_type">
+                        <option value="">All Movements</option>
+                        <option value="rise" {% if movement_type == 'rise' %}selected{% endif %}>Rise Only</option>
+                        <option value="fall" {% if movement_type == 'fall' %}selected{% endif %}>Fall Only</option>
+                        <option value="drop_then_rise" {% if movement_type == 'drop_then_rise' %}selected{% endif %}>Drop then Rise</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="sector" class="form-label">Sector</label>
+                    <select class="form-select" id="sector" name="sector">
+                        <option value="">All Sectors</option>
+                        {% for sector in sectors %}
+                        <option value="{{ sector }}" {% if sector == selected_sector %}selected{% endif %}>{{ sector }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label for="preset_period" class="form-label">Preset Crash Periods</label>
+                    <select class="form-select" id="preset_period" name="preset_period">
+                        <option value="">Custom Range</option>
+                        <option value="covid_2020" {% if preset_period == 'covid_2020' %}selected{% endif %}>COVID-19 Crash (Feb-Mar 2020)</option>
+                        <option value="gfc_2008" {% if preset_period == 'gfc_2008' %}selected{% endif %}>Global Financial Crisis (2007-2009)</option>
+                        <option value="dotcom_2000" {% if preset_period == 'dotcom_2000' %}selected{% endif %}>Dot-com Bubble Burst (2000-2002)</option>
+                        <option value="euro_debt_2011" {% if preset_period == 'euro_debt_2011' %}selected{% endif %}>European Debt Crisis (2011)</option>
+                        <option value="russian_1998" {% if preset_period == 'russian_1998' %}selected{% endif %}>Russian Default (1998)</option>
+                        <option value="asian_1997" {% if preset_period == 'asian_1997' %}selected{% endif %}>Asian Financial Crisis (1997-1998)</option>
+                        <option value="recession_1990" {% if preset_period == 'recession_1990' %}selected{% endif %}>1990 Recession</option>
+                        <option value="black_monday_1987" {% if preset_period == 'black_monday_1987' %}selected{% endif %}>Black Monday (1987)</option>
+                        <option value="volcker_1980" {% if preset_period == 'volcker_1980' %}selected{% endif %}>Early 1980s Recession (1980-1982)</option>
+                        <option value="correction_2018" {% if preset_period == 'correction_2018' %}selected{% endif %}>2018 Market Correction</option>
+                        <option value="bear_2022" {% if preset_period == 'bear_2022' %}selected{% endif %}>2022 Bear Market</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <a href="{% url 'analysis:analysis_table' %}" class="btn btn-secondary w-100">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Total Symbols</h5>
+                    <p class="card-text display-6">{{ total_symbols }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-success">
+                <div class="card-body">
+                    <h5 class="card-title">Avg Volatility (30d)</h5>
+                    <p class="card-text display-6">{{ avg_volatility|floatformat:2 }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-warning">
+                <div class="card-body">
+                    <h5 class="card-title">Biggest Drop</h5>
+                    <p class="card-text display-6">{{ biggest_drop|floatformat:2 }}%</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-white bg-info">
+                <div class="card-body">
+                    <h5 class="card-title">Biggest Rise</h5>
+                    <p class="card-text display-6">{{ biggest_rise|floatformat:2 }}%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Analysis Results</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table id="analysisTable" class="table table-striped table-hover" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Company Name</th>
+                            <th>Sector</th>
+                            <th>Latest Price</th>
+                            <th>1D Change %</th>
+                            <th>5D Change %</th>
+                            <th>20D Change %</th>
+                            <th>Volatility (30d) %</th>
+                            <th>Volatility Regime</th>
+                            <th>Max Drop %</th>
+                            <th>Max Rise %</th>
+                            <th>Drop then Rise %</th>
+                            <th>Volume (avg)</th>
+                            <th>RSI (14)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in analysis_data %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'stocks:symbol_detail' item.symbol.ticker %}?from_date={{ from_date }}&to_date={{ to_date }}&source=analysis_table">
+                                    {{ item.symbol.ticker }}
+                                </a>
+                            </td>
+                            <td>{{ item.symbol.company_name|truncatechars:30 }}</td>
+                            <td>{{ item.symbol.sector|default:"N/A" }}</td>
+                            <td>${{ item.latest_price|floatformat:2 }}</td>
+                            <td class="{% if item.change_1d > 0 %}positive{% elif item.change_1d < 0 %}negative{% endif %}">
+                                {{ item.change_1d|floatformat:2 }}%
+                            </td>
+                            <td class="{% if item.change_5d > 0 %}positive{% elif item.change_5d < 0 %}negative{% endif %}">
+                                {{ item.change_5d|floatformat:2 }}%
+                            </td>
+                            <td class="{% if item.change_20d > 0 %}positive{% elif item.change_20d < 0 %}negative{% endif %}">
+                                {{ item.change_20d|floatformat:2 }}%
+                            </td>
+                            <td>{{ item.volatility_30d|floatformat:2 }}%</td>
+                            <td>
+                                {% if item.volatility_regime == 'low' %}
+                                <span class="badge bg-success">Low</span>
+                                {% elif item.volatility_regime == 'normal' %}
+                                <span class="badge bg-info">Normal</span>
+                                {% elif item.volatility_regime == 'high' %}
+                                <span class="badge bg-warning text-dark">High</span>
+                                {% elif item.volatility_regime == 'extreme' %}
+                                <span class="badge bg-danger">Extreme</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Unknown</span>
+                                {% endif %}
+                            </td>
+                            <td class="negative">{{ item.max_drop|floatformat:2 }}%</td>
+                            <td class="positive">{{ item.max_rise|floatformat:2 }}%</td>
+                            <td class="{% if item.drop_then_rise and item.drop_then_rise > 0 %}positive{% elif item.drop_then_rise and item.drop_then_rise < 0 %}negative{% endif %}">
+                                {{ item.drop_then_rise|floatformat:2|default:"N/A" }}%
+                            </td>
+                            <td>{{ item.avg_volume|floatformat:0 }}</td>
+                            <td>
+                                {% if item.rsi_14 %}
+                                <div class="progress" style="height: 20px; width: 100px;">
+                                    <div class="progress-bar {% if item.rsi_14 > 70 %}bg-danger{% elif item.rsi_14 < 30 %}bg-success{% else %}bg-info{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ item.rsi_14 }}%;" 
+                                         aria-valuenow="{{ item.rsi_14 }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        {{ item.rsi_14|floatformat:0 }}
+                                    </div>
+                                </div>
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="15" class="text-center">No data available for the selected filters</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- DataTables JS -->
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.6/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.bootstrap5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.html5.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.3.6/js/buttons.print.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/fixedheader/3.3.2/js/dataTables.fixedHeader.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/responsive/2.4.1/js/dataTables.responsive.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Select2 for symbols multiselect
+    $('#symbols').select2({
+        placeholder: "Select symbols...",
+        allowClear: true,
+        width: '100%'
+    });
+
+    // Initialize Flatpickr for date fields
+    $(".flatpickr").flatpickr({
+        dateFormat: "Y-m-d",
+        allowInput: true,
+        maxDate: "today"
+    });
+
+    // Initialize DataTable
+    var table = $('#analysisTable').DataTable({
+        dom: 'Bfrtip',
+        buttons: [
+            {
+                extend: 'csv',
+                text: 'Export CSV',
+                className: 'btn btn-sm btn-outline-secondary'
+            },
+            {
+                extend: 'excel',
+                text: 'Export Excel',
+                className: 'btn btn-sm btn-outline-secondary'
+            },
+            {
+                extend: 'print',
+                text: 'Print',
+                className: 'btn btn-sm btn-outline-secondary'
+            }
+        ],
+        pageLength: 25,
+        responsive: true,
+        fixedHeader: true,
+        order: [[4, 'desc']], // Default sort by 1D change
+        columnDefs: [
+            { targets: [13], orderable: false }, // Disable sorting on volume column
+            { targets: [14], orderable: false }  // Disable sorting on RSI column
+        ],
+        language: {
+            emptyTable: "No data available for the selected filters"
+        }
+    });
+
+    // Validate dates before form submission
+    $('#analysisForm').on('submit', function(e) {
+        const fromDate = $('#from_date').val();
+        const toDate = $('#to_date').val();
+        
+        if (!fromDate || !toDate) {
+            e.preventDefault();
+            alert('Please select both From Date and To Date');
+            return false;
+        }
+        
+        if (fromDate > toDate) {
+            e.preventDefault();
+            alert('From Date must be before To Date');
+            return false;
+        }
+    });
+
+    // Auto-submit form when certain filters change
+    $('#movement_threshold, #time_period, #movement_type, #sector, #min_volatility, #max_volatility').change(function() {
+        if ($('#from_date').val() && $('#to_date').val()) {
+            $('#analysisForm').submit();
+        }
+    });
+
+    // Debounce for threshold inputs
+    var timeout = null;
+    $('#movement_threshold, #time_period, #min_volatility, #max_volatility').on('input', function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(function() {
+            if ($('#from_date').val() && $('#to_date').val()) {
+                $('#analysisForm').submit();
+            }
+        }, 1000);
+    });
+
+    // Handle preset period selection
+    $('#preset_period').change(function() {
+        if ($(this).val()) {
+            // Preset selected - form will submit and backend will set the dates
+            $('#analysisForm').submit();
+        }
+    });
+
+});
+</script>
+{% endblock %}
